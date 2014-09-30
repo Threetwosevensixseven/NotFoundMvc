@@ -1,5 +1,7 @@
-﻿using System.Web;
+﻿using System;
+using System.Web;
 using System.Web.Mvc;
+using System.Web.Mvc.Async;
 
 namespace NotFoundMvc
 {
@@ -7,13 +9,18 @@ namespace NotFoundMvc
     /// Wraps another IActionInvoker except it handles the case of an action method
     /// not being found and invokes the NotFoundController instead.
     /// </summary>
-    class ActionInvokerWrapper : IActionInvoker
+    class ActionInvokerWrapper : IAsyncActionInvoker
     {
         readonly IActionInvoker actionInvoker;
+        readonly IAsyncActionInvoker asyncInvoker;
 
         public ActionInvokerWrapper(IActionInvoker actionInvoker)
         {
             this.actionInvoker = actionInvoker;
+            asyncInvoker = actionInvoker as IAsyncActionInvoker;
+
+            if (asyncInvoker == null)
+                throw new ArgumentException("Invoker must support async.");
         }
 
         public bool InvokeAction(ControllerContext controllerContext, string actionName)
@@ -30,12 +37,9 @@ namespace NotFoundMvc
         static void ExecuteNotFoundControllerAction(ControllerContext controllerContext)
         {
             IController controller;
-            if (NotFoundHandler.CreateNotFoundController != null)
-            {
+            if (NotFoundHandler.CreateNotFoundController != null) {
                 controller = NotFoundHandler.CreateNotFoundController(controllerContext.RequestContext) ?? new NotFoundController();
-            }
-            else
-            {
+            } else {
                 controller = new NotFoundController();
             }
 
@@ -44,14 +48,37 @@ namespace NotFoundMvc
 
         bool InvokeActionWith404Catch(ControllerContext controllerContext, string actionName)
         {
-            try
-            {
+            try {
                 return actionInvoker.InvokeAction(controllerContext, actionName);
+            } catch (HttpException ex) {
+                if (ex.GetHttpCode() == 404) {
+                    return false;
+                }
+                throw;
             }
-            catch (HttpException ex)
-            {
-                if (ex.GetHttpCode() == 404)
-                {
+        }
+
+        public IAsyncResult BeginInvokeAction(ControllerContext controllerContext, string actionName, AsyncCallback callback, object state)
+        {
+            return asyncInvoker.BeginInvokeAction(controllerContext, actionName, callback, controllerContext);
+        }
+
+        public bool EndInvokeAction(IAsyncResult asyncResult)
+        {
+            if (EndInvokeActionWith404Catch(asyncResult))
+                return true;
+
+            ExecuteNotFoundControllerAction(asyncResult.AsyncState as ControllerContext);
+
+            return true;
+        }
+
+        bool EndInvokeActionWith404Catch(IAsyncResult asyncResult)
+        {
+            try {
+                return asyncInvoker.EndInvokeAction(asyncResult);
+            } catch (HttpException ex) {
+                if (ex.GetHttpCode() == 404) {
                     return false;
                 }
                 throw;
