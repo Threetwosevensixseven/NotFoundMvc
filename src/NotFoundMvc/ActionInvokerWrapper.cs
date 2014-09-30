@@ -18,9 +18,6 @@ namespace NotFoundMvc
         {
             this.actionInvoker = actionInvoker;
             asyncInvoker = actionInvoker as IAsyncActionInvoker;
-
-            if (asyncInvoker == null)
-                throw new ArgumentException("Invoker must support async.");
         }
 
         public bool InvokeAction(ControllerContext controllerContext, string actionName)
@@ -60,7 +57,13 @@ namespace NotFoundMvc
 
         public IAsyncResult BeginInvokeAction(ControllerContext controllerContext, string actionName, AsyncCallback callback, object state)
         {
-            return asyncInvoker.BeginInvokeAction(controllerContext, actionName, callback, controllerContext);
+            if (asyncInvoker != null)
+                return asyncInvoker.BeginInvokeAction(controllerContext, actionName, callback, controllerContext);
+
+            // Just try to invoke the action using the regular action invoker, let the framework throw the right exception for
+            // invoking an async function with a non-async invoker.
+            InvokeActionWith404Catch(controllerContext, actionName);
+            return null;
         }
 
         public bool EndInvokeAction(IAsyncResult asyncResult)
