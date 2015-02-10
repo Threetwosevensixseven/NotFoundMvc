@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Web;
 using System.Web.Mvc;
 using System.Web.Mvc.Async;
@@ -49,7 +50,8 @@ namespace NotFoundMvc
                 return actionInvoker.InvokeAction(controllerContext, actionName);
             } catch (HttpException ex) {
                 if (ex.GetHttpCode() == 404) {
-                    return false;
+                    var skipNotFoundAttributes = controllerContext.Controller.GetType().GetCustomAttributes(typeof(NoMvcNotFoundAttribute), false);
+                    return skipNotFoundAttributes.Any();
                 }
                 throw;
             }
@@ -82,7 +84,8 @@ namespace NotFoundMvc
                 return asyncInvoker.EndInvokeAction(asyncResult);
             } catch (HttpException ex) {
                 if (ex.GetHttpCode() == 404) {
-                    return false;
+                    var skipNotFoundAttributes = (asyncResult.AsyncState as ControllerContext).Controller.GetType().GetCustomAttributes(typeof(NoMvcNotFoundAttribute), false);
+                    return skipNotFoundAttributes.Any();
                 }
                 throw;
             }
