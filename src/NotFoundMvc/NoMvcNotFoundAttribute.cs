@@ -6,7 +6,7 @@ using System.Text;
 namespace NotFoundMvc
 {
     [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
-    class NoMvcNotFoundAttribute : Attribute
+    public class NoMvcNotFoundAttribute : Attribute
     {
     }
 }
